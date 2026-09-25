@@ -76,10 +76,10 @@ escolhido (pgAdmin, MySQL Workbench etc.) e troquem a `DATABASE_URL` no
 
 ## Como integrar com o resto do time
 
-- **Felipe/Stephanie (script SQL):** o `models.py` já está batendo com a
+- **Stephanie (script SQL):** o `models.py` já está batendo com a
   tabela `usuario` do `schema.sql` (colunas `id`, `email`, `nome`, `tipo`,
   `senha`). Se a tabela mudar, ajustem o `models.py` junto.
-- **Stephanie (criar usuário):** pode substituir a rota `POST /usuarios`
+- **Felipe (criar usuário):** pode substituir a rota `POST /usuarios`
   deste `main.py` pela versão dela — só precisa continuar usando a função
   `hash_password()` de `security.py` para salvar a senha.
 - **Allan (atualizar usuário) e Lucas (remover usuário):** no fim do
