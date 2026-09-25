@@ -1,5 +1,5 @@
 """
-Autenticação com JWT — parte do Murilo.
+Autenticação com JWT 
 
 Contém:
   - hash e verificação de senha (usado por quem criar o endpoint de cadastro)
