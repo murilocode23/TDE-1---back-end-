@@ -1,4 +1,4 @@
-# TDE1 — Autenticação JWT (parte do Murilo)
+# TDE - 1
 
 Esta pasta contém a parte de **autenticação com JWT** do TDE1, pronta pra
 rodar e pra ser integrada com o resto do projeto (criação/atualização/
