@@ -82,7 +82,7 @@ escolhido (pgAdmin, MySQL Workbench etc.) e troquem a `DATABASE_URL` no
 - **Felipe (criar usuário):** pode substituir a rota `POST /usuarios`
   deste `main.py` pela versão dela — só precisa continuar usando a função
   `hash_password()` de `security.py` para salvar a senha.
-- **Allan (atualizar usuário) e Lucas (remover usuário):** no fim do
+- **Allan (atualizar usuário) e Açucena (remover usuário):** no fim do
   `main.py` já tem um modelo comentado de como proteger a rota deles com
   `Depends(get_current_user)`. É só descomentar/adaptar e implementar a
   lógica de update/delete.
