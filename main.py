@@ -91,7 +91,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     (a tabela não tem coluna username). Devolve um token JWT se
     as credenciais estiverem corretas.
     """
-    usuario = db.query(models.Usuario).filter(models.Usuario.email == form_data.username).first()
+    usuario = db.query(models.Usuario).filter(models.Usuario.email == form_data.username, models.Usuario.ativo == True).first()
     if not usuario or not verify_password(form_data.password, usuario.senha):
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
 
