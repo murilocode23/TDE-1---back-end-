@@ -9,9 +9,10 @@ remoção de usuário e, depois, gestão de avaliações).
 - Modelo de usuário batendo com a tabela `usuario` do `schema.sql` da equipe (`models.py`)
 - Hash de senha com bcrypt e geração/validação de token JWT (`security.py`)
 - Rotas (`main.py`):
-  - `POST /usuarios` — cadastro básico (placeholder para a Stephanie ajustar)
+  - `POST /usuarios` — cadastro completo, com validações implementadas e tratamento de erros (placeholder para a Stephanie ajustar)
   - `POST /login` — autentica e devolve o token JWT (use o **e-mail** no campo "username", já que a tabela não tem coluna username)
   - `GET /perfil` — exemplo de rota **protegida** (só responde com token válido)
+  
 
 ## Sobre o banco de dados
 O arquivo `schema.sql` (enviado pela Stephanie) é carregado automaticamente
