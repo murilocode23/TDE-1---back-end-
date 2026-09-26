@@ -104,6 +104,27 @@ def perfil(usuario_logado: models.Usuario = Depends(get_current_user)):
     """Rota protegida de exemplo — só responde se o token for válido."""
     return usuario_logado
 
+@app.delete("/usuarios/{usuario_id}", status_code=204)
+def remover_usuario(
+    usuario_id: int,
+    usuario_logado: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    usuario = db.query(models.Usuario).filter(
+        models.Usuario.id == usuario_id
+    ).first()
+
+    if not usuario:
+        raise HTTPException(
+            status_code=404,
+            detail="Usuário não encontrado"
+        )
+
+    usuario.ativo = False
+
+    db.commit()
+
+    return
 
 # --------------------------------------------------------------------------
 # Allan (atualizar usuário) e Açucena (remover usuário): usem este modelo
@@ -117,11 +138,5 @@ def perfil(usuario_logado: models.Usuario = Depends(get_current_user)):
 #     db: Session = Depends(get_db),
 # ):
 #     ...
-#
-# @app.delete("/usuarios/{usuario_id}", status_code=204)
-# def remover_usuario(
-#     usuario_id: int,
-#     usuario_logado: models.Usuario = Depends(get_current_user),
-#     db: Session = Depends(get_db),
-# ):
-#     ...
+
+
