@@ -5,9 +5,8 @@ Este arquivo já traz pronto:
   - criação das tabelas no banco ao iniciar
   - POST /login          -> autentica e devolve o token JWT
   - GET  /perfil         -> exemplo de rota PROTEGIDA (exige token)
-  - POST /usuarios       -> cadastro básico, só para o projeto rodar
-                            de ponta a ponta. A Stephanie pode substituir
-                            por uma versão mais completa.
+  - POST /usuarios       -> cadastro atualizado por Felipe pra uma versão mais completa, com validações
+                            nome obrigatório, mínimo de caracteres na senha, máximo de caracteres no email, se é um tipo válido "Admin" ou "autor".
 
 Allan e Açucena: colem as rotas de atualizar/remover usuário aqui embaixo,
 copiando o padrão da rota /perfil (usando Depends(get_current_user)).
@@ -15,7 +14,7 @@ copiando o padrão da rota /perfil (usando Depends(get_current_user)).
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-
+from sqlalchemy.exc import IntegrityError
 import os
 from sqlalchemy import text
 
@@ -42,22 +41,45 @@ with engine.connect() as conn:
 
 app = FastAPI(title="API - Gestão de Avaliações (TDE1)")
 
-
+TIPOS_VALIDOS = {"admin", "autor"}
 @app.post("/usuarios", response_model=schemas.UsuarioOut, status_code=201)
 def criar_usuario(dados: schemas.UsuarioCreate, db: Session = Depends(get_db)):
-    """Cadastro básico de usuário (placeholder — Stephanie ajusta se precisar)."""
-    ja_existe = db.query(models.Usuario).filter(models.Usuario.email == dados.email).first()
+    """Cadastro básico de usuário."""
+    nome = dados.nome.strip()
+    email = dados.email.lower()
+    senha = dados.senha
+    tipo = dados.tipo
+
+    if not nome:
+        raise HTTPException(status_code=422, detail="Nome é obrigatório")
+    if len(nome) > 100:
+        raise HTTPException(status_code=422, detail="Nome deve ter no máximo 100 caracteres")
+
+    if len(senha) < 8:
+        raise HTTPException(status_code=422, detail="Senha deve ter no mínimo 8 caracteres")
+
+    if tipo not in TIPOS_VALIDOS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Tipo deve ser um dos seguintes: {', '.join(sorted(TIPOS_VALIDOS))}",
+        )
+
+    ja_existe = db.query(models.Usuario).filter(models.Usuario.email == email).first()
     if ja_existe:
         raise HTTPException(status_code=400, detail="E-mail já cadastrado")
 
     novo_usuario = models.Usuario(
-        nome=dados.nome,
-        email=dados.email,
-        tipo=dados.tipo,
-        senha=hash_password(dados.senha),
+        nome=nome,
+        email=email,
+        tipo=tipo,
+        senha=hash_password(senha),
     )
     db.add(novo_usuario)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
     db.refresh(novo_usuario)
     return novo_usuario
 
