@@ -1,13 +1,3 @@
-"""
-Autenticação com JWT 
-
-Contém:
-  - hash e verificação de senha (usado por quem criar o endpoint de cadastro)
-  - geração do token JWT (usado no login)
-  - get_current_user: dependency que os colegas devem colocar em QUALQUER
-    rota que precise exigir usuário logado (atualizar usuário, remover
-    usuário, rotas de avaliação no TDE2, etc.)
-"""
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -28,7 +18,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# tokenUrl aponta para a rota de login lá do main.py
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
@@ -51,19 +40,6 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> models.Usuario:
-    """
-    Dependency que valida o token JWT e retorna o usuário logado.
-
-    Como usar em outra rota (exemplo para Allan/Lucas):
-
-        @app.put("/usuarios/{usuario_id}")
-        def atualizar_usuario(
-            usuario_id: int,
-            usuario_logado: models.Usuario = Depends(get_current_user),
-            db: Session = Depends(get_db),
-        ):
-            ...
-    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token inválido ou expirado",
@@ -77,7 +53,9 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    usuario = db.query(models.Usuario).filter(models.Usuario.email == email).first()
+    usuario = db.query(models.Usuario).filter(
+        models.Usuario.email == email, models.Usuario.ativo == True
+    ).first()
     if usuario is None:
         raise credentials_exception
     return usuario

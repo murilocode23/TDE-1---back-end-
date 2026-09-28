@@ -1,16 +1,3 @@
-"""
-Aplicação principal do TDE1.
-
-Este arquivo já traz pronto:
-  - criação das tabelas no banco ao iniciar
-  - POST /login          -> autentica e devolve o token JWT
-  - GET  /perfil         -> exemplo de rota PROTEGIDA (exige token)
-  - POST /usuarios       -> cadastro atualizado por Felipe pra uma versão mais completa, com validações
-                            nome obrigatório, mínimo de caracteres na senha, máximo de caracteres no email, se é um tipo válido "Admin" ou "autor".
-
-Allan e Açucena: colem as rotas de atualizar/remover usuário aqui embaixo,
-copiando o padrão da rota /perfil (usando Depends(get_current_user)).
-"""
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -23,8 +10,7 @@ import schemas
 from database import engine, get_db
 from security import hash_password, verify_password, create_access_token, get_current_user
 
-# Cria o banco a partir do schema.sql da equipe (só roda se o banco ainda
-# não tiver a tabela "usuario", pra não apagar dados toda vez que reiniciar).
+# cria o banco pelo schema.sql se ainda nao existir
 with engine.connect() as conn:
     tabela_existe = conn.execute(
         text("SELECT name FROM sqlite_master WHERE type='table' AND name='usuario'")
@@ -44,7 +30,6 @@ app = FastAPI(title="API - Gestão de Avaliações (TDE1)")
 TIPOS_VALIDOS = {"admin", "autor"}
 @app.post("/usuarios", response_model=schemas.UsuarioOut, status_code=201)
 def criar_usuario(dados: schemas.UsuarioCreate, db: Session = Depends(get_db)):
-    """Cadastro básico de usuário."""
     nome = dados.nome.strip()
     email = dados.email.lower()
     senha = dados.senha
@@ -86,11 +71,7 @@ def criar_usuario(dados: schemas.UsuarioCreate, db: Session = Depends(get_db)):
 
 @app.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """
-    Login: no campo "username" do formulário, envie o E-MAIL do usuário
-    (a tabela não tem coluna username). Devolve um token JWT se
-    as credenciais estiverem corretas.
-    """
+    # o campo username recebe o email
     usuario = db.query(models.Usuario).filter(models.Usuario.email == form_data.username, models.Usuario.ativo == True).first()
     if not usuario or not verify_password(form_data.password, usuario.senha):
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
@@ -101,7 +82,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @app.get("/perfil", response_model=schemas.UsuarioOut)
 def perfil(usuario_logado: models.Usuario = Depends(get_current_user)):
-    """Rota protegida de exemplo — só responde se o token for válido."""
     return usuario_logado
 
 @app.delete("/usuarios/{usuario_id}", status_code=204)
@@ -110,8 +90,16 @@ def remover_usuario(
     usuario_logado: models.Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    eh_admin = usuario_logado.tipo == "admin"
+    eh_proprio = usuario_logado.id == usuario_id
+
+    if not eh_admin and not eh_proprio:
+        raise HTTPException(status_code=403, detail="Você só pode remover o seu próprio usuário")
+    if eh_admin and eh_proprio:
+        raise HTTPException(status_code=403, detail="Administrador não pode remover o próprio usuário")
+
     usuario = db.query(models.Usuario).filter(
-        models.Usuario.id == usuario_id
+        models.Usuario.id == usuario_id, models.Usuario.ativo == True
     ).first()
 
     if not usuario:
@@ -126,17 +114,105 @@ def remover_usuario(
 
     return
 
-# --------------------------------------------------------------------------
-# Allan (atualizar usuário) e Açucena (remover usuário): usem este modelo
-# --------------------------------------------------------------------------
-#
-# @app.put("/usuarios/{usuario_id}", response_model=schemas.UsuarioOut)
-# def atualizar_usuario(
-#     usuario_id: int,
-#     dados: schemas.UsuarioCreate,
-#     usuario_logado: models.Usuario = Depends(get_current_user),
-#     db: Session = Depends(get_db),
-# ):
-#     ...
+
+@app.delete("/usuarios/{usuario_id}/permanente", status_code=204)
+def deletar_usuario(
+    usuario_id: int,
+    usuario_logado: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if usuario_logado.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem deletar usuários")
+    if usuario_logado.id == usuario_id:
+        raise HTTPException(status_code=403, detail="Administrador não pode deletar o próprio usuário")
+
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    db.execute(text("DELETE FROM usuario_curso WHERE usuario_id = :id"), {"id": usuario_id})
+    db.execute(text("DELETE FROM usuario_disciplina WHERE usuario_id = :id"), {"id": usuario_id})
+    db.delete(usuario)
+    db.commit()
+
+    return
+
+
+@app.patch("/usuarios/{usuario_id}", response_model=schemas.UsuarioOut)
+def atualizar_usuario(
+    usuario_id: int,
+    dados: schemas.UsuarioUpdate,
+    usuario_logado: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    eh_admin = usuario_logado.tipo == "admin"
+    eh_proprio = usuario_logado.id == usuario_id
+
+    if not eh_admin and not eh_proprio:
+        raise HTTPException(status_code=403, detail="Você só pode editar o seu próprio usuário")
+
+    usuario = db.query(models.Usuario).filter(
+        models.Usuario.id == usuario_id, models.Usuario.ativo == True
+    ).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    alteracoes = dados.model_dump(exclude_unset=True)
+    senha_atual = alteracoes.pop("senha_atual", None)
+
+    if not alteracoes:
+        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar foi enviado")
+
+    for campo, valor in alteracoes.items():
+        if valor is None:
+            raise HTTPException(status_code=422, detail=f"O campo '{campo}' não pode ser nulo")
+
+    if "nome" in alteracoes:
+        nome = alteracoes["nome"].strip()
+        if not nome:
+            raise HTTPException(status_code=422, detail="Nome é obrigatório")
+        if len(nome) > 100:
+            raise HTTPException(status_code=422, detail="Nome deve ter no máximo 100 caracteres")
+        usuario.nome = nome
+
+    if "email" in alteracoes:
+        email = alteracoes["email"].lower()
+        if email != usuario.email:
+            ja_existe = db.query(models.Usuario).filter(
+                models.Usuario.email == email, models.Usuario.id != usuario.id
+            ).first()
+            if ja_existe:
+                raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+            usuario.email = email
+
+    if "tipo" in alteracoes:
+        tipo = alteracoes["tipo"]
+        if not eh_admin:
+            raise HTTPException(status_code=403, detail="Apenas administradores podem alterar o tipo do usuário")
+        if eh_proprio and tipo != usuario.tipo:
+            raise HTTPException(status_code=403, detail="Administrador não pode alterar o próprio tipo")
+        if tipo not in TIPOS_VALIDOS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Tipo deve ser um dos seguintes: {', '.join(sorted(TIPOS_VALIDOS))}",
+            )
+        usuario.tipo = tipo
+
+    if "senha" in alteracoes:
+        senha = alteracoes["senha"]
+        if len(senha) < 8:
+            raise HTTPException(status_code=422, detail="Senha deve ter no mínimo 8 caracteres")
+        if eh_proprio:
+            if not senha_atual or not verify_password(senha_atual, usuario.senha):
+                raise HTTPException(status_code=400, detail="Senha atual incorreta ou não informada")
+        usuario.senha = hash_password(senha)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+    db.refresh(usuario)
+    return usuario
 
 

@@ -90,8 +90,7 @@ CREATE TABLE usuario_disciplina (
 
 
 
--- OBS: as senhas abaixo estão com HASH bcrypt (não em texto puro), gerado a
--- partir das senhas originais: admin@exemplo.com=123456, autor1@exemplo.com=654321, autor2@exemplo.com=213246
+-- senhas em bcrypt: admin@exemplo.com=123456, autor1@exemplo.com=654321, autor2@exemplo.com=213246
 INSERT INTO usuario (id, email, nome, tipo, senha) VALUES
 (1, 'admin@exemplo.com', 'Administrador', 'admin', '$2b$12$EgQJ.rSQtJ5CSjiXo8ZIPOdxilIxuZgxic.OqEQRfpMabfZL03Cl2'),
 (2, 'autor1@exemplo.com', 'Maria Silva', 'autor', '$2b$12$wvNG9r05sicvc4ZbrNPi.eBrbNyufMieRUo8/ryIIztXOGcQm7U9q'),
